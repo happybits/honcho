@@ -18,17 +18,14 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Install the project's dependencies using the lockfile and settings
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-group dev
-
 # Copy only requirements to cache them in docker layer
+# (Railway's Metal builder supports no BuildKit mounts at all, so plain COPY.)
 COPY uv.lock pyproject.toml /app/
 
+RUN uv sync --frozen --no-install-project --no-group dev
+
 # Sync the project
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-group dev
+RUN uv sync --frozen --no-group dev
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
