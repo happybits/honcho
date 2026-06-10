@@ -51,4 +51,6 @@ USER app
 
 EXPOSE 8000
 
-CMD ["fastapi", "run", "--host", "0.0.0.0", "src/main.py"]
+# AI Hub: default to the entrypoint (runs migrations, binds :: for Railway IPv6
+# private networking). The deriver service overrides this with `python -m src.deriver`.
+CMD ["sh", "docker/entrypoint.sh"]

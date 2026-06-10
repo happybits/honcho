@@ -1,0 +1,109 @@
+# AI Hub deployment config — happybits/honcho fork (branch: aihub)
+# Baked into the image (Dockerfile COPYs config.toml). Env vars override these values;
+# secrets (AUTH_JWT_SECRET, LLM_ANTHROPIC_API_KEY, DB_CONNECTION_URI, CACHE_URL) come
+# from Railway service variables, never this file.
+#
+# HARD RULES this file encodes (org data policy):
+# - Every LLM call is pinned to transport="anthropic" (the org's already-approved model
+#   path). The upstream defaults are OpenAI; do NOT revert any model_config here.
+# - Embeddings go to our SELF-HOSTED TEI sidecar (Anthropic has no embeddings API);
+#   base_url points at Railway-internal DNS, so no content leaves our infra.
+# - Telemetry/metrics/sentry are OFF: no phone-home.
+
+[app]
+LOG_LEVEL = "INFO"
+EMBED_MESSAGES = true
+NAMESPACE = "honcho"
+
+[db]
+# DB_CONNECTION_URI comes from the Railway env.
+SCHEMA = "public"
+POOL_SIZE = 5
+MAX_OVERFLOW = 10
+
+[auth]
+USE_AUTH = true
+# AUTH_JWT_SECRET comes from the Railway env.
+
+[sentry]
+ENABLED = false
+
+# --- Embeddings: self-hosted TEI sidecar (OpenAI-compatible /v1/embeddings) ---
+# Model: BAAI/bge-small-en-v1.5 -> 384 dims, 512-token max input.
+[embedding]
+VECTOR_DIMENSIONS = 384
+MAX_INPUT_TOKENS = 512
+
+[embedding.model_config]
+transport = "openai"
+model = "BAAI/bge-small-en-v1.5"
+
+[embedding.model_config.overrides]
+base_url = "http://honcho-embeddings.railway.internal:8080/v1"
+api_key_env = "EMBEDDING_API_KEY"   # TEI needs no auth; set a dummy value in env
+
+# --- Deriver: ambient fact extraction. Haiku-class is plenty and bounds cost. ---
+[deriver]
+ENABLED = true
+WORKERS = 1
+
+[deriver.model_config]
+transport = "anthropic"
+model = "claude-haiku-4-5"
+
+[peer_card]
+ENABLED = true
+
+# --- Dialectic: cheap levels on Haiku; high/max on Sonnet for when Hub asks hard questions ---
+[dialectic.levels.minimal.model_config]
+transport = "anthropic"
+model = "claude-haiku-4-5"
+
+[dialectic.levels.low.model_config]
+transport = "anthropic"
+model = "claude-haiku-4-5"
+
+[dialectic.levels.medium.model_config]
+transport = "anthropic"
+model = "claude-haiku-4-5"
+
+[dialectic.levels.high.model_config]
+transport = "anthropic"
+model = "claude-sonnet-4-6"
+
+[dialectic.levels.max.model_config]
+transport = "anthropic"
+model = "claude-sonnet-4-6"
+
+[summary]
+ENABLED = true
+
+[summary.model_config]
+transport = "anthropic"
+model = "claude-haiku-4-5"
+
+# --- Dream: OFF for v1 (background re-processing = extra spend; revisit after real usage) ---
+[dream]
+ENABLED = false
+
+[dream.deduction_model_config]
+transport = "anthropic"
+model = "claude-haiku-4-5"
+
+[dream.induction_model_config]
+transport = "anthropic"
+model = "claude-haiku-4-5"
+
+# --- No phone-home ---
+[metrics]
+ENABLED = false
+
+[telemetry]
+ENABLED = false
+
+[cache]
+# CACHE_ENABLED / CACHE_URL come from the Railway env (redis sidecar).
+ENABLED = false
+
+[vector_store]
+TYPE = "pgvector"
